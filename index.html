@@ -1,56 +1,272 @@
 <html>
-    <head>
-        <title>Centrifugo js</title>
-        <script type="text/javascript" src="centrifuge.js"></script>
-        <script src="https://cdn.bootcss.com/crypto-js/3.1.9/core.js"></script>
-        <script src="https://cdn.bootcss.com/crypto-js/3.1.9/hmac.js"></script>
-        <script src="https://cdn.bootcss.com/crypto-js/3.1.9/sha256.js"></script>
-        <script src="https://cdn.bootcss.com/crypto-js/3.1.9/enc-hex.js"></script>
-        <script src="https://cdn.bootcss.com/crypto-js/3.1.9/hmac-sha256.js"></script>
-    </head>
-    <body>
-    <script>
-        var centrifuge = new Centrifuge({
-            url: "ws://192.168.1.9:8000/connection/websocket",
-            user: "42",
-            timestamp: "1488055494",
-            token: CryptoJS.enc.Hex.stringify(CryptoJS.HmacSHA256("42"+"1488055494","109AF84FWF45AS4S5W8F"))
-        });
-        var subscription = {};
-        var public_callbacks = {
-            "message": function(dataset) {
-                console.dir(dataset);
-              subscription.readMessage(dataset.uid).then(function(msgid){
-                  console.log("Read success");
-              });
-            },
-            "read": function(dataset) {
-                console.log("read");
-                console.dir(dataset);
-            },                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
-            "subscribe": function(context) {
-                console.log('SUBSCRIBE: '+JSON.stringify(context));
-            },
-            "error": function(errContext) {
-                console.log('ERROR: '+JSON.stringify(errContext));
-            },
-            "unsubscribe": function(context) {
-                console.log('UNSUBSCRIBE: '+JSON.stringify(context));
-            }
+<head>
+  <title>Centrifugo.js Demo</title>
+  <link href="https://unpkg.com/semantic-ui/dist/semantic.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/vue"></script>
+  <script src="centrifuge.js"></script>
+  <script src="https://cdn.bootcss.com/crypto-js/3.1.9/core.js"></script>
+  <script src="https://cdn.bootcss.com/crypto-js/3.1.9/hmac.js"></script>
+  <script src="https://cdn.bootcss.com/crypto-js/3.1.9/sha256.js"></script>
+  <script src="https://cdn.bootcss.com/crypto-js/3.1.9/enc-hex.js"></script>
+  <script src="https://cdn.bootcss.com/crypto-js/3.1.9/hmac-sha256.js"></script>
+</head>
+<style>
+  body {
+    padding-top: 20px;
+  }
+
+  .avatar {
+    height: 2.5em !important;
+  }
+
+  .comments {
+    height: 400px;
+    max-width: 700px !important;
+    overflow: auto;
+  }
+
+  .overflow {
+    height: 98%;
+    overflow: auto;
+  }
+
+  .me .avatar {
+    float: right !important;
+  }
+
+  .me .author {
+    float: right;
+    margin-left: 0.5em;
+  }
+
+  .me .content {
+    text-align: right;
+    margin-left: 0;
+    margin-right: 3.5em;
+  }
+</style>
+<body>
+<div id="app"></div>
+
+<script>
+  const Messages = {
+    data () {
+      return {
+        centrifuge: null,
+        timestamp: '' + Math.floor(Date.now() / 1000),
+        subscriptionList: [], // 订阅通道实例
+        publicCallbacks: {},  // 通道实例回掉方法
+        connectionInfo: {
+          status: false, // 连接状态
+          info: '' // 连接信息
+        },
+        channelName: 'public:chat', // 填写的通道名称
+        channelList: [], // 通道列表
+        selectedChannel: '', // 当前发送消息的通道
+        // 发送内容
+        sendMsg: {
+          user: '测试用户' + Math.floor(Math.random() * 10000),
+          msg: ''
+        },
+        msgList: [], // 消息列表
+        logList: [], // log列表
+        readList: [] // 已读列表
+      }
+    },
+    computed: {},
+    created () {
+      // 创建连接实例
+      this.centrifuge = new Centrifuge({
+        url: 'ws://192.168.1.9:8000/connection/websocket',
+        user: this.sendMsg.user,
+        timestamp: this.timestamp,
+        token: CryptoJS.enc.Hex.stringify(CryptoJS.HmacSHA256(this.sendMsg.user + this.timestamp, '109AF84FWF45AS4S5W8F'))
+      })
+      // 连接成功事件
+      this.centrifuge.on('connect', (context) => {
+        this.logList.push({info: 'connect 连接成功', res: context})
+        this.connectionInfo = {status: true, info: context.latency + 'ms'}
+      })
+      // 连接断开事件
+      this.centrifuge.on('disconnect', (context) => {
+        this.logList.push({info: 'disconnect 连接断开', res: context})
+        this.connectionInfo = {status: false, info: context.reason}
+      })
+      // 建立连接
+      this.centrifuge.connect()
+      // 通道回调事件
+      this.publicCallbacks = {
+        message: dataset => {
+          this.logList.push({info: 'message 接收消息', res: dataset})
+          this.msgList.push(dataset)
+          // this.subscription.readMessage(dataset.uid).then((msgid) => {
+          //   console.log('Read success')
+          // })
+        },
+        read: dataset => {
+          this.logList.push({info: 'read 已读消息', res: dataset})
+          this.readList.push(dataset)
+        },
+        subscribe: context => {
+          this.logList.push({info: 'subscribe 订阅通道', res: context})
+          this.channelList.push(context.channel)
+          // 订阅成功，获取该通道历史记录
+          this.subscriptionList[this.channelName].history(0, -1).then((res) => {
+            this.logList.push({info: 'history 历史消息', res: res})
+            this.msgList.push(...res.data)
+          })
+          // 订阅成功，自动发送
+          this.subscriptionList[this.channelName].publish('自动发送：【' + this.sendMsg.user + '】加入【 ' + this.channelName + ' 】')
+        },
+        error: errContext => {
+          this.logList.push({info: 'error 错误信息', res: errContext})
+        },
+        unsubscribe: context => {
+          this.logList.push({info: 'unsubscribe 取消订阅', res: context})
+          this.channelList.splice(context.channel, 1)
         }
-        
-        subscription = centrifuge.subscribe("public:chat", public_callbacks);
-        
-        centrifuge.on('connect', function(context) {
-            console.log("Connection ("+context.latency+"ms)");
-            subscription.publish("a");
-        });
-        
-        centrifuge.on('disconnect', function(context) {
-            console.log("Disconnection: "+context.reason);
-        });
-        
-        centrifuge.connect();
-    </script>
-    </body>
-    </html>
+      }
+    },
+    methods: {
+      // 订阅通道
+      subscribe (channelName) {
+        this.subscriptionList[channelName] = this.centrifuge.subscribe(channelName, this.publicCallbacks)
+      },
+      // 取消订阅
+      unsubscribe (channelName) {
+        this.subscriptionList[channelName].unsubscribe()
+      },
+      // 单条标记为已读
+      read (channelName, uid) {
+        this.subscriptionList[channelName].readMessage(uid).then((msgid) => {})
+      },
+      // 发送信息
+      publish (data) {
+        if (data === '' || this.selectedChannel === '') return false
+        this.subscriptionList[this.selectedChannel].publish(data.msg)
+      },
+    },
+    watch: {
+      readList () {
+        // 将已读的状态改为 true
+        this.readList.forEach(readUid => {
+          this.msgList.forEach(msg => {
+            if (readUid === msg.uid) {
+              msg.read = true
+            }
+          })
+        })
+      },
+      // 消息滚动保持在底部
+      msgList () {
+        this.$nextTick(() => {
+          document.querySelector('.comments').scrollTop = document.querySelector('.comments').scrollHeight
+        })
+      },
+      // 打印log保持在底部
+      logList () {
+        this.$nextTick(() => {
+          document.querySelector('.overflow').scrollTop = document.querySelector('.overflow').scrollHeight
+        })
+      },
+    },
+    template:
+      `
+<div class="ui grid centered">
+  <h4 class="ui horizontal divider header">Centrifuge.js Demo</h4>
+  <div class="six wide column">
+    <div class="ui container">
+      <div class="ui message" :class="connectionInfo.status ? 'positive' : 'negative'">
+        {{ connectionInfo.status ? '连接成功，请订阅通道' : '连接断开'}} （{{ connectionInfo.info }}）
+      </div>
+      <div class="ui right labeled left icon input">
+        <i class="tags icon"></i>
+        <input type="text" placeholder="Enter tags" v-model="channelName">
+        <a class="ui teal tag label" @click="subscribe(channelName)">订阅通道</a>
+      </div>
+      <div class="ui horizontal divider">已订阅通道列表</div>
+      <div class="ui large labels">
+        <a class="ui teal tag label" v-for="item in channelList" @click="unsubscribe(item)">{{ item }}<i class="icon close"></i></a>
+      </div>
+      <div class="ui horizontal divider">接收消息</div>
+      <div class="ui comments">
+        <div class="comment" :class="{'me': item.info.user === sendMsg.user }" v-for="item in msgList">
+          <a class="avatar" @click="read(item.channel, item.uid)">
+            <img :src="item.info.user === sendMsg.user ? 'avatar2.jpg' : 'avatar.jpg'">
+          </a>
+          <div class="content">
+            <a class="author">{{ item.info.user }}</a>
+            <div class="metadata">
+              <div class="date">{{ item.timestamp | dateFormat }}</div>
+            </div>
+            <div class="text">{{ item.data }}</div>
+            <div class="actions">
+              <a class="save">{{ item.channel }}</a>
+              <a class="reply">{{ item.read ? '已读' : '未读' }}</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ui horizontal divider">发送消息</div>
+      <div class="ui form">
+        <div class="field">
+          <div class="two fields">
+            <div class="field">
+              <div class="ui left icon input"><input type="text" v-model="sendMsg.user" disabled><i class="user icon"></i></div>
+            </div>
+            <div class="field">
+              <select class="ui dropdown" v-model="selectedChannel">
+                <option :value="item" v-for="item in channelList">{{ item}}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="field"><textarea v-model="sendMsg.msg" rows="3"></textarea></div>
+        <div class="ui primary submit labeled icon button" @click="publish(sendMsg)"><i class="icon edit"></i>发送消息</div>
+      </div>
+    </div>
+  </div>
+  <div class="six wide column overflow">
+    <div class="ui info message" v-for="item in logList">
+      <div class="header"> {{ item.info}}</div>
+      <pre>{{ item.res }}</pre>
+    </div>
+  </div>
+</div>
+      `,
+    filters: {
+      dateFormat (value, fmt = 'YYYY-MM-DD HH:mm:ss') {
+        value = new Date((value / 1000000))
+        let o = {
+          'M+': value.getMonth() + 1,
+          'D+': value.getDate(),
+          'h+': value.getHours() % 12 === 0 ? 12 : value.getHours() % 12,
+          'H+': value.getHours(),
+          'm+': value.getMinutes(),
+          's+': value.getSeconds(),
+          'q+': Math.floor((value.getMonth() + 3) / 3),
+          'S': value.getMilliseconds()
+        }
+        if (/(Y+)/.test(fmt)) {
+          fmt = fmt.replace(RegExp.$1, (`${value.getFullYear()}`).substr(4 - RegExp.$1.length))
+        }
+        for (const k in o) {
+          if (new RegExp(`(${k})`).test(fmt)) {
+            fmt = fmt.replace(RegExp.$1, (RegExp.$1.length === 1) ? (o[k]) : ((`00${o[k]}`).substr((`${o[k]}`).length)))
+          }
+        }
+        return fmt
+      }
+    }
+  }
+
+  new Vue({
+    el: '#app',
+    components: {
+      'Messages': Messages
+    },
+    template: `<Messages></Messages>`
+  })
+</script>
+</body>
+</html>

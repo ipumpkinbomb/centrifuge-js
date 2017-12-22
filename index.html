@@ -77,7 +77,7 @@
     created () {
       // 创建连接实例
       this.centrifuge = new Centrifuge({
-        url: 'ws://192.168.1.9:8000/connection/websocket',
+        url: 'wss://192.168.1.9:8000/connection/websocket',
         user: this.sendMsg.user,
         timestamp: this.timestamp,
         token: CryptoJS.enc.Hex.stringify(CryptoJS.HmacSHA256(this.sendMsg.user + this.timestamp, '109AF84FWF45AS4S5W8F'))

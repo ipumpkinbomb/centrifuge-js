@@ -1,5 +1,7 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <title>Centrifugo.js Demo</title>
   <link href="https://unpkg.com/semantic-ui/dist/semantic.min.css" rel="stylesheet">
   <script src="https://unpkg.com/vue"></script>
@@ -8,7 +10,7 @@
   <script src="https://unpkg.com/crypto-js/sha256"></script>
   <script src="https://unpkg.com/crypto-js/enc-hex"></script>
   <script src="https://unpkg.com/crypto-js/hmac-sha256"></script>
-  <script src="centrifuge.js"></script>
+  <script src="centrifuge.min.js"></script>
 </head>
 <style>
   body {
@@ -91,8 +93,7 @@
         uidList: new Map() // 存储通道的 msgid
       }
     },
-    computed: {
-    },
+    computed: {},
     created () {
       // 通道回调事件
       this.publicCallbacks = {

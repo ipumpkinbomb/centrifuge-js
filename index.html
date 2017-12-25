@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Centrifugo.js Demo</title>
   <link href="https://unpkg.com/semantic-ui/dist/semantic.min.css" rel="stylesheet">
   <script src="https://unpkg.com/vue"></script>
@@ -13,6 +15,10 @@
   <script src="centrifuge.min.js"></script>
 </head>
 <style>
+  html, body {
+    height: 100%
+  }
+
   body {
     padding-top: 20px;
   }
@@ -24,11 +30,6 @@
   .comments {
     height: 400px;
     max-width: 700px !important;
-    overflow: auto;
-  }
-
-  .overflow {
-    height: 98%;
     overflow: auto;
   }
 
@@ -73,6 +74,7 @@
         centrifuge: null,
         url: 'ws://192.168.1.9:8000/connection/websocket', // 连接的服务器地址
         timestamp: '' + Math.floor(Date.now() / 1000), // 时间戳
+        clientHeight: '900', // 可视区域高度
         subscriptionList: [], // 订阅通道实例
         publicCallbacks: {},  // 通道实例回掉方法
         connectionInfo: {
@@ -138,6 +140,9 @@
           this.selectedChannel = this.channelList[this.channelList.length - 1] // 激活最后一个标签
         }
       }
+    },
+    mounted () {
+      this.clientHeight = document.documentElement.clientHeight - 50 // 计算可视区域高度，滚动条显示
     },
     methods: {
       // 创建连接
@@ -230,13 +235,14 @@
       // 消息滚动保持在底部
       msgList () {
         this.$nextTick(() => {
-          document.querySelector('.comments').scrollTop = document.querySelector('.comments').scrollHeight
+          const comments = document.getElementById(this.selectedChannel).querySelector('.comments')
+          comments.scrollTop = comments.scrollHeight
         })
       },
       // 打印log保持在底部
       logList () {
         this.$nextTick(() => {
-          document.querySelector('.overflow').scrollTop = document.querySelector('.overflow').scrollHeight
+          document.querySelector('.log').scrollTop = document.querySelector('.log').scrollHeight
         })
       }
     },
@@ -265,8 +271,8 @@
            v-for="item in channelList" @click="switchChannel(item)">{{ item }}<i class="icon close"  @click.stop="unsubscribe(item)"></i></a>
       </div>
       <div class="ui bottom attached tab segment" :class="{'active': itemChannel === selectedChannel}"
-           :data-tab="itemChannel" v-for="itemChannel in channelList" >
-        <div class="ui comments" >
+           :data-tab="itemChannel" :id="itemChannel" v-for="itemChannel in channelList">
+        <div class="ui comments">
           <div class="comment" :class="{'me': item.info.user === sendMsg.user }" v-for="item in msgList" v-if="item.channel === selectedChannel">
             <a class="avatar" @click="read(item.channel, item.uid)">
               <img :src="item.info.user === sendMsg.user ? 'avatar2.jpg' : 'avatar.jpg'">
@@ -303,7 +309,7 @@
       </div>
     </div>
   </div>
-  <div class="six wide column overflow">
+  <div class="six wide column log" :style="{height: clientHeight +'px', overflow: 'auto'}">
     <div class="ui info message" v-for="item in logList">
       <div class="header"> {{ item.info }}</div>
       <pre>{{ item.res }}</pre>
